@@ -125,7 +125,7 @@
     "electron": "^44.2.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-format": "^2.0.1",
     "knip": "^6.34.0",
