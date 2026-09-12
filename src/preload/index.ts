@@ -92,6 +92,8 @@ const api = {
       ipcRenderer.invoke('win:screenshot') as Promise<void>,
     fitContentWidth: (desiredContentWidth: number) =>
       ipcRenderer.send('win:fit-content-width', desiredContentWidth),
+    setAlwaysOnTop: (enabled: boolean) =>
+      ipcRenderer.send('win:set-always-on-top', enabled),
     setIgnoreMouse: (ignore: boolean) => ipcRenderer.send('win:set-ignore-mouse', ignore),
     onForwardedMove: (cb: (x: number | null, y: number | null) => void): (() => void) => {
       const handler = (_: IpcRendererEvent, x: number | null, y: number | null): void =>

@@ -6,6 +6,7 @@ import {
   getMainWindow,
   isIgnoringMouseEvents,
   setIgnoringMouseEvents,
+  setWindowAlwaysOnTop,
   startCursorPoll,
   stopCursorPoll,
 } from '../window';
@@ -34,6 +35,10 @@ export function registerWindowHandlers(): void {
   });
 
   ipcMain.on('win:open-external', (_, url: string) => void shell.openExternal(url));
+
+  ipcMain.on('win:set-always-on-top', (_, enabled: boolean) => {
+    setWindowAlwaysOnTop(enabled);
+  });
 
   ipcMain.on('win:set-ignore-mouse', (_, ignore: boolean) => {
     const win = getMainWindow();

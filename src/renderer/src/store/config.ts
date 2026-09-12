@@ -90,6 +90,7 @@ export interface ConfigState {
   fontSize: number;
   opacity: number;
   roundedCorners: boolean;
+  alwaysOnTop: boolean;
   activeColumns: Column[];
   sortBy: Column;
   sortAscending: boolean;
@@ -131,7 +132,7 @@ const DefaultColumns: Column[] = [
   Column.WIN_STREAK,
 ];
 
-const configVersion = 8;
+const configVersion = 9;
 
 interface ConfigMigration {
   keys: (keyof ConfigState)[];
@@ -145,6 +146,7 @@ const migrations: Record<number, ConfigMigration> = {
   6: { keys: ['queueSafety'] },
   7: { keys: ['queueSafety'] },
   8: { keys: ['queueSafety'] },
+  9: { keys: ['alwaysOnTop'] },
 };
 
 const ValidColumns = new Set<string>(Object.values(Column));
@@ -205,6 +207,7 @@ function makeDefaultState(): ConfigState {
     fontSize: 15,
     opacity: 0.92,
     roundedCorners: true,
+    alwaysOnTop: false,
     activeColumns: DefaultColumns,
     sortBy: Column.NAME,
     sortAscending: false,

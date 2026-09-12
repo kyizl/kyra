@@ -645,6 +645,7 @@ declare global {
         openExternal: (url: string) => void;
         screenshot: () => Promise<void>;
         fitContentWidth: (width: number) => void;
+        setAlwaysOnTop: (enabled: boolean) => void;
         setIgnoreMouse: (ignore: boolean) => void;
         onForwardedMove: (
           callback: (x: number | null, y: number | null) => void,
