@@ -62,6 +62,12 @@ provide('setScreenshotMode', setScreenshotMode);
 watch(() => config.integratedMode, applyThemeVars);
 
 watch(
+  () => config.alwaysOnTop,
+  (enabled) => window.api.win.setAlwaysOnTop(enabled),
+  { immediate: true },
+);
+
+watch(
   () => config.perfLoggingEnabled,
   (enabled) => {
     if (enabled) startPerfLogging();

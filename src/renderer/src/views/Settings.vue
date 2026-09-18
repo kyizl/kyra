@@ -229,6 +229,11 @@ const proxies = computed(() => [
             @update="config.roundedCorners = $event"
           />
           <ToggleSetting
+            label="Always on top"
+            :value="config.alwaysOnTop"
+            @update="config.alwaysOnTop = $event"
+          />
+          <ToggleSetting
             label="Text shadow"
             :value="config.textShadow"
             @update="config.textShadow = $event"

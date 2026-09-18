@@ -21,6 +21,7 @@ let topmostTimer: NodeJS.Timeout | null = null;
 let lastCursorX = -1;
 let lastCursorY = -1;
 let ignoringMouseEvents = false;
+let windowAlwaysOnTop = false;
 
 const topmostReassertIntervalMs = 1500;
 const topmostLevel = process.platform === 'darwin' ? 'floating' : 'screen-saver';
@@ -63,6 +64,21 @@ function stopTopmostReassert(): void {
   topmostTimer = null;
 }
 
+export function setWindowAlwaysOnTop(enabled: boolean): void {
+  windowAlwaysOnTop = enabled;
+  const win = mainWindow;
+  if (!win || win.isDestroyed()) return;
+
+  if (!enabled) {
+    stopTopmostReassert();
+    win.setAlwaysOnTop(false);
+    return;
+  }
+
+  reassertAlwaysOnTop(win);
+  startTopmostReassert(win);
+}
+
 export function createWindow(): BrowserWindow {
   const state = windowStateKeeper({
     defaultWidth: width,
@@ -80,7 +96,7 @@ export function createWindow(): BrowserWindow {
     minHeight,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     hasShadow: false,
     maximizable: false,
     fullscreenable: false,
@@ -98,15 +114,13 @@ export function createWindow(): BrowserWindow {
 
   mainWindow = win;
   state.manage(win);
-  win.setAlwaysOnTop(true, topmostLevel);
-  startTopmostReassert(win);
 
   if (process.platform === 'win32') {
     win.setSkipTaskbar(false);
   }
 
   win.on('focus', () => {
-    if (ignoringMouseEvents) {
+    if (ignoringMouseEvents && windowAlwaysOnTop) {
       win.blur();
     }
   });
