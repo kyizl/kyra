@@ -15,10 +15,6 @@ updates:
       prefix: chore(deps)
       prefix-development: chore(dev-deps)
     groups:
-      electron-ecosystem:
-        patterns:
-          - 'electron*'
-          - '@electron*'
       vue-ecosystem:
         patterns:
           - 'vue*'

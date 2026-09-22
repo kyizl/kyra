@@ -1,4 +1,9 @@
 out/
+target/
+node_modules/
+coverage/
+playwright-report/
+test-results/
 dist/
 node_modules/
 *.min.js

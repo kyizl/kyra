@@ -29,7 +29,8 @@
     "**/node_modules/**": true,
     "**/dist/**": true,
     "**/.output/**": true,
-    "**/.electron-vite/**": true
+    "**/target/**": true,
+    "**/out/**": true
   },
 
   "js/ts.tsdk.path": "node_modules/typescript/lib",
@@ -132,14 +133,14 @@
     "**/dist": true,
     "**/node_modules": true,
     "**/.output": true,
-    "**/.electron-vite": true
+    "**/target": true,
+    "**/out": true
   },
 
   "search.exclude": {
     "**/dist": true,
     "**/node_modules": true,
     "**/.output": true,
-    "**/.electron-vite": true
   },
 
   "explorer.confirmDelete": false,

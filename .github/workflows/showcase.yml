@@ -13,101 +13,62 @@ permissions:
 
 jobs:
   showcase:
-    name: Capture & Commit Showcases
+    name: Capture and commit showcases
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.RELEASE_TOKEN }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Install Playwright test runner
-        run: npm install -D @playwright/test
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
 
-      - name: Install Playwright browsers + system deps
-        run: |
-          npx playwright install --with-deps chromium
-          sudo apt-get install -y \
-            xvfb \
-            libgbm-dev \
-            libasound2t64 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libdrm2 \
-            libgtk-3-0 \
-            libxcomposite1 \
-            libxdamage1 \
-            libxfixes3 \
-            libxrandr2 \
-            libxshmfence1
-
-      - name: Build app (development mode)
-        run: NODE_ENV=development npx electron-vite build --mode development
+      - name: Build renderer
+        run: npm run build
 
       - name: Capture showcase screenshots
-        run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
-            npx playwright test e2e/showcase.spec.ts --reporter=line
+        run: npx playwright test showcase.spec.ts --reporter=line
         env:
-          DISPLAY: :99
           CI: true
 
-      - name: Commit screenshots to repo
+      - name: Commit screenshots
+        if: github.event_name == 'push'
+        shell: bash
         run: |
           set -euo pipefail
 
-          mkdir -p assets
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add assets/showcase-pika.png assets/showcase-jartex.png
 
           if git diff --staged --quiet; then
             exit 0
           fi
 
-          git stash push --keep-index --include-untracked -m "showcase-ci-wip"
-          trap 'git stash list | grep -q "showcase-ci-wip" && git stash drop || true' EXIT
-
           git commit -m "chore: update showcase screenshots [skip ci]"
 
-          rebased=false
           for attempt in 1 2 3 4 5; do
             git fetch origin "${GITHUB_REF_NAME}"
-
-            if git rebase "origin/${GITHUB_REF_NAME}"; then
-              rebased=true
-              break
-            fi
-
-            git rebase --abort
-            sleep $((attempt * 5))
-          done
-
-          if [ "$rebased" != true ]; then
-            echo "Rebase kept failing after 5 attempts, giving up."
-            exit 1
-          fi
-
-          for attempt in 1 2 3 4 5; do
+            git rebase "origin/${GITHUB_REF_NAME}" || {
+              git rebase --abort
+              sleep $((attempt * 5))
+              continue
+            }
             if git push origin "HEAD:${GITHUB_REF_NAME}"; then
               exit 0
             fi
-
-            echo "Push rejected, re-fetching and rebasing (attempt $attempt)..."
-            git fetch origin "${GITHUB_REF_NAME}"
-            git rebase "origin/${GITHUB_REF_NAME}" || git rebase --abort
             sleep $((attempt * 5))
           done
 

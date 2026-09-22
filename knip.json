@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["scripts/*.ts", "e2e/*.spec.ts"],
-  "project": ["src/**/*.{ts,vue}", "scripts/**/*.ts", "e2e/**/*.ts"],
+  "entry": ["e2e/*.spec.ts"],
+  "project": ["src/**/*.{ts,vue,css}", "e2e/**/*.ts"],
   "vue": true,
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [
@@ -9,11 +9,7 @@
     "@semantic-release/github",
     "@semantic-release/npm",
     "@semantic-release/release-notes-generator",
-    "@vue/tsconfig",
-    "@electron/rebuild",
     "conventional-changelog-conventionalcommits",
-    "tailwindcss",
-    "tsx",
     "vitest"
   ]
 }

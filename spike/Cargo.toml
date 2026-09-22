@@ -1,0 +1,16 @@
+[package]
+name = "kyra_proto_spike"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.53", features = ["full"] }
+bytes = "1.12"
+flate2 = "1.1"
+aes = "0.9"
+cfb8 = "0.9"
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1.26", features = ["v4", "v3"] }
+serde_json = "1.0"

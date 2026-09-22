@@ -3,113 +3,42 @@
   "version": "1.11.1",
   "private": true,
   "description": "Kyra Overlay - A BedWars Stats Overlay",
-  "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "vue-tsc --noEmit && electron-vite build",
-    "postinstall": "install-electron",
-    "preview": "electron-vite preview",
-    "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux",
-    "lint": "eslint . --max-warnings 9999",
-    "lint:fix": "eslint . --fix --max-warnings 9999",
+    "dev": "tauri dev",
+    "renderer:dev": "vite --config vite.config.ts",
+    "build": "vue-tsc --noEmit && vite build --config vite.config.ts",
+    "preview": "vite preview --config vite.config.ts",
+    "e2e": "playwright test",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:dev": "tauri build --config src-tauri/tauri.dev.conf.json",
+    "lint": "eslint src --max-warnings 9999",
+    "lint:fix": "eslint src --fix --max-warnings 9999",
     "format": "prettier --write \"src/**/*.{ts,vue,css,html}\"",
     "format:check": "prettier --check \"src/**/*.{ts,vue,css,html}\"",
     "typecheck": "vue-tsc --noEmit",
     "codemod": "npm --prefix codemods run codemod",
     "fix": "npm run codemod && npm run typecheck && npm run lint:fix && npm run format",
-    "knip": "KNIP_DISABLE_RAW_TRANSFER=1 knip"
-  },
-  "build": {
-    "appId": "com.thebois.overlay",
-    "productName": "Kyra Overlay",
-    "protocols": [
-      {
-        "name": "Kyra Overlay Protocol",
-        "schemes": [
-          "kyra-overlay"
-        ]
-      }
-    ],
-    "files": [
-      "out/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "resources/",
-        "to": "resources/",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "win": {
-      "artifactName": "Kyra.Overlay.Setup.${version}.${ext}",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "resources/icon.ico"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "resources/icon.icns",
-      "identity": null,
-      "hardenedRuntime": false
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "resources/icon.png"
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "shortcutName": "Kyra Overlay",
-      "createDesktopShortcut": "always",
-      "createStartMenuShortcut": true
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "kyizl",
-        "repo": "kyra",
-        "releaseType": "release"
-      }
-    ]
+    "knip": "knip"
   },
   "dependencies": {
-    "@electron-toolkit/utils": "^4.0.0",
-    "@logdna/tail-file": "^4.0.2",
-    "@vueuse/core": "^15.0.0",
-    "axios": "^1.20.0",
+    "@tauri-apps/api": "^2.11.1",
+    "@vueuse/core": "^14.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "discord-rpc": "^4.0.1",
     "dompurify": "^3.4.15",
-    "electron-updater": "^6.8.9",
-    "electron-window-state": "^5.0.3",
-    "fast-glob": "^3.3.3",
     "gsap": "^3.15.0",
     "lucide-vue-next": "^1.0.0",
-    "marked": "^18.0.13",
-    "minecraft-protocol": "^1.68.0",
+    "marked": "^18.0.12",
     "pinia": "^4.0.3",
     "pinia-plugin-persistedstate": "^4.1.1",
-    "prismarine-nbt": "^2.8.0",
     "radix-vue": "^1.9.9",
-    "tailwind-merge": "^3.7.0",
-    "vue": "^3.5.43",
+    "tailwind-merge": "^3.6.0",
+    "vue": "^3.5.42",
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.5.1",
-    "@electron-toolkit/tsconfig": "^2.0.0",
-    "@electron/rebuild": "^4.2.0",
     "@playwright/test": "^1.63.0",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/commit-analyzer": "^13.0.0",
@@ -118,35 +47,28 @@
     "@semantic-release/npm": "^13.1.5",
     "@semantic-release/release-notes-generator": "^14.1.1",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.6.2",
-    "@vitejs/plugin-vue": "^6.0.9",
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/node": "^26.5.0",
+    "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
     "conventional-changelog-conventionalcommits": "^10.4.0",
-    "electron": "^44.4.3",
-    "electron-builder": "^26.15.3",
-    "electron-vite": "^5.0.0",
-    "eslint": "^10.11.0",
+    "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-format": "^2.0.1",
-    "knip": "^6.37.0",
+    "knip": "^6.34.0",
     "playwright": "^1.63.0",
-    "prettier": "^3.9.8",
+    "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "semantic-release": "^25.0.9",
     "tailwindcss": "^4.3.3",
-    "tsx": "^4.23.13",
-    "typescript": "7.0.2",
-    "vitest": "^5.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^5.0.0",
     "vue-tsc": "^3.3.11"
   },
   "allowScripts": {
     "vue-demi@0.14.10": true,
-    "electron-winstaller@5.4.0": true,
-    "github:devsnek/node-register-scheme#e7cc9a63a1f512565da44cb57316d9fb10750e17": true,
     "esbuild@0.28.2": true
   },
-  "trustedDependencies": [
-    "electron",
-    "@electron/rebuild"
-  ]
+  "trustedDependencies": []
 }

@@ -1,7 +1,7 @@
+import type { Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from '@playwright/test';
-import { _electron as electron } from 'playwright';
 
 const api = 'https://craftigames.kyizl.is-a.dev/api/staff';
 
@@ -128,243 +128,221 @@ interface ShowcaseApiResult {
   stats?: unknown;
 }
 
+interface ShowcaseStatsApi {
+  fetch: (username: string, interval: string, mode: string) => Promise<ShowcaseApiResult>;
+}
+
 async function captureShowcase(
+  page: Page,
   players: string[],
   configSeed: Record<string, unknown>,
   outputFilename: string,
 ): Promise<void> {
-  const mainEntry = path.join(__dirname, '..', 'out', 'main', 'index.js');
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await page.goto('/');
 
-  const app = await electron.launch({
-    args: [mainEntry],
-    env: {
-      ...process.env,
-      ELECTRON_ENABLE_LOGGING: '0',
+  const network = (configSeed.network as string) ?? 'pikanetwork';
+
+  await page.evaluate(
+    ({ cfg, nicks }) => {
+      localStorage.setItem('kyra-config', JSON.stringify(cfg));
+      localStorage.setItem('kyra-config-version', '4');
+      localStorage.setItem('nicks', JSON.stringify(nicks));
+      localStorage.setItem('skip-loading', '1');
+      localStorage.setItem('skip-announcements', '1');
+      localStorage.setItem('skip-remove-btn', '1');
+      localStorage.setItem('skip-discord-link', '1');
     },
-  });
+    { cfg: configSeed, nicks },
+  );
 
-  try {
-    const page = await app.firstWindow();
+  await page.reload({ waitUntil: 'domcontentloaded' });
 
-    await app.evaluate(({ BrowserWindow }) => {
-      const [win] = BrowserWindow.getAllWindows();
-      win.setContentSize(1400, 800);
-    });
+  await page.waitForSelector('header', { timeout: 15_000 });
 
-    const network = (configSeed.network as string) ?? 'pikanetwork';
+  await page.waitForFunction(
+    () => (window as unknown as Record<string, unknown>).__pinia !== undefined,
+    {
+      timeout: 10000,
+    },
+  );
 
-    await page.evaluate(
-      ({ cfg, nicks }) => {
-        localStorage.setItem('kyra-config', JSON.stringify(cfg));
-        localStorage.setItem('kyra-config-version', '4');
-        localStorage.setItem('nicks', JSON.stringify(nicks));
-        localStorage.setItem('skip-loading', '1');
-        localStorage.setItem('skip-announcements', '1');
-        localStorage.setItem('skip-remove-btn', '1');
-        localStorage.setItem('skip-discord-link', '1');
-      },
-      { cfg: configSeed, nicks },
-    );
+  await page.evaluate((net: string) => {
+    const pinia = (window as unknown as Record<string, unknown>).__pinia as {
+      state?: { value?: Record<string, unknown> };
+    };
+    const state = pinia.state?.value as
+      Record<string, Record<string, unknown>> | undefined;
+    if (!state) return;
+    const playersState = state.players;
+    if (playersState !== undefined) {
+      playersState.logPathValid = null;
+      playersState.proxyConnectedNetwork = net;
+    }
+  }, network);
 
-    await page.reload({ waitUntil: 'domcontentloaded' });
-
-    await page.waitForSelector('header', { timeout: 15_000 });
-
-    await page.waitForFunction(
-      () => (window as unknown as Record<string, unknown>).__pinia !== undefined,
-      {
-        timeout: 10000,
-      },
-    );
-
-    await page.evaluate((net: string) => {
-      const pinia = (window as unknown as Record<string, unknown>).__pinia as {
-        state?: { value?: Record<string, unknown> };
-      };
+  await page.evaluate(
+    async ({ names, net }: { names: string[]; net: string }) => {
+      const pinia = (window as unknown as Record<string, unknown>).__pinia as
+        { state?: { value?: Record<string, unknown> } } | undefined;
+      if (pinia === undefined) throw new Error('[showcase] window.__pinia not found');
       const state = pinia.state?.value as
         Record<string, Record<string, unknown>> | undefined;
-      if (!state) return;
-      const playersState = state.players;
-      if (playersState !== undefined) {
-        playersState.logPathValid = null;
-        playersState.proxyConnectedNetwork = net;
-      }
-    }, network);
-
-    await page.evaluate(
-      async ({ names, net }: { names: string[]; net: string }) => {
-        const pinia = (window as unknown as Record<string, unknown>).__pinia as
-          { state?: { value?: Record<string, unknown> } } | undefined;
-        if (pinia === undefined) throw new Error('[showcase] window.__pinia not found');
-        const state = pinia.state?.value as
-          Record<string, Record<string, unknown>> | undefined;
-        if (!state) throw new Error('[showcase] pinia state not found');
-        const api = net === 'jartexnetwork' ? window.api.jartex : window.api.pika;
-
-        const normalizeProfile = (
-          profile: Record<string, unknown> | null,
-        ): Record<string, unknown> | null => {
-          if (!profile) return profile;
-          const rank = profile.rank as { rankDisplay?: string } | undefined;
-          if (!rank?.rankDisplay?.includes('Partner')) return profile;
-          const ranks = profile.ranks as { name: string }[];
-          if (ranks.some((r) => r.name === 'partner')) return profile;
-          return {
-            ...profile,
-            ranks: [
-              ...ranks,
-              {
-                name: 'partner',
-                displayName: 'Partner',
-                server: '',
-                season: null,
-                expiry: -1,
-              },
-            ],
-          };
-        };
-
-        for (const name of names) {
-          (state.players.players as unknown[]).push({
-            name,
-            realName: name,
-            uuid: null,
-            loading: true,
-            error: null,
-            nicked: false,
-            profile: null,
-            stats: null,
-            source: 'manual' as const,
-            team: null,
-            teamColor: null,
-          });
+      if (!state) throw new Error('[showcase] pinia state not found');
+      const api = (
+        window as unknown as {
+          api: { jartex: ShowcaseStatsApi; pika: ShowcaseStatsApi };
         }
+      ).api[net === 'jartexnetwork' ? 'jartex' : 'pika'];
 
-        await Promise.allSettled(
-          names.map(async (username, i) => {
-            await new Promise((r) => setTimeout(r, i * 350));
+      const normalizeProfile = (
+        profile: Record<string, unknown> | null,
+      ): Record<string, unknown> | null => {
+        if (!profile) return profile;
+        const rank = profile.rank as { rankDisplay?: string } | undefined;
+        if (!rank?.rankDisplay?.includes('Partner')) return profile;
+        const ranks = profile.ranks as { name: string }[];
+        if (ranks.some((r) => r.name === 'partner')) return profile;
+        return {
+          ...profile,
+          ranks: [
+            ...ranks,
+            {
+              name: 'partner',
+              displayName: 'Partner',
+              server: '',
+              season: null,
+              expiry: -1,
+            },
+          ],
+        };
+      };
 
-            try {
-              const result = (await api.fetch(
-                username,
-                'total',
-                'ALL_MODES',
-              )) as ShowcaseApiResult;
-              const playerList = state.players.players as Array<Record<string, unknown>>;
-              const idx = playerList.findIndex(
-                (p) => (p.realName as string).toLowerCase() === username.toLowerCase(),
+      for (const name of names) {
+        (state.players.players as unknown[]).push({
+          name,
+          realName: name,
+          uuid: null,
+          loading: true,
+          error: null,
+          nicked: false,
+          profile: null,
+          stats: null,
+          source: 'manual' as const,
+          team: null,
+          teamColor: null,
+        });
+      }
+
+      await Promise.allSettled(
+        names.map(async (username, i) => {
+          await new Promise((r) => setTimeout(r, i * 350));
+
+          try {
+            const result = await api.fetch(username, 'total', 'ALL_MODES');
+            const playerList = state.players.players as Array<Record<string, unknown>>;
+            const idx = playerList.findIndex(
+              (p) => (p.realName as string).toLowerCase() === username.toLowerCase(),
+            );
+            if (idx === -1) return;
+
+            const p = playerList[idx];
+            if (result.notFound) {
+              p.nicked = true;
+              if (p.profile === null && p.stats === null) p.error = 'not_found';
+            } else if (result.rateLimit) {
+              p.error = 'rate_limited';
+            } else {
+              p.profile = normalizeProfile(
+                result.profile as Record<string, unknown> | null,
               );
-              if (idx === -1) return;
-
-              const p = playerList[idx];
-              if (result.notFound) {
-                p.nicked = true;
-                if (p.profile === null && p.stats === null) p.error = 'not_found';
-              } else if (result.rateLimit) {
-                p.error = 'rate_limited';
-              } else {
-                p.profile = normalizeProfile(
-                  result.profile as Record<string, unknown> | null,
-                );
-                p.stats = result.stats;
-                const apiName =
-                  typeof result.profile === 'object' && result.profile !== null
-                    ? (result.profile.username as string | undefined)
-                    : undefined;
-                if (typeof apiName === 'string' && apiName.length > 0) {
-                  p.name = apiName;
-                  p.realName = apiName;
-                }
-              }
-              p.loading = false;
-            } catch {
-              const playerList = state.players.players as Array<Record<string, unknown>>;
-              const idx = playerList.findIndex(
-                (p) => (p.realName as string).toLowerCase() === username.toLowerCase(),
-              );
-              if (idx !== -1) {
-                playerList[idx].loading = false;
-                playerList[idx].error = 'network';
+              p.stats = result.stats;
+              const apiName =
+                typeof result.profile === 'object' && result.profile !== null
+                  ? (result.profile.username as string | undefined)
+                  : undefined;
+              if (typeof apiName === 'string' && apiName.length > 0) {
+                p.name = apiName;
+                p.realName = apiName;
               }
             }
-          }),
-        );
-      },
-      { names: players, net: network },
-    );
+            p.loading = false;
+          } catch {
+            const playerList = state.players.players as Array<Record<string, unknown>>;
+            const idx = playerList.findIndex(
+              (p) => (p.realName as string).toLowerCase() === username.toLowerCase(),
+            );
+            if (idx !== -1) {
+              playerList[idx].loading = false;
+              playerList[idx].error = 'network';
+            }
+          }
+        }),
+      );
+    },
+    { names: players, net: network },
+  );
 
-    await page.waitForFunction(
-      (count) => {
-        const rows = document.querySelectorAll('tbody tr');
-        return rows.length >= count;
-      },
-      players.length,
-      { timeout: 10_000 },
-    );
+  await page.waitForFunction(
+    (count) => {
+      const rows = document.querySelectorAll('tbody tr');
+      return rows.length >= count;
+    },
+    players.length,
+    { timeout: 10_000 },
+  );
 
-    await page.waitForTimeout(800);
+  await page.waitForTimeout(800);
 
-    await app.evaluate(({ BrowserWindow }) => {
-      const [win] = BrowserWindow.getAllWindows();
-      win.setContentSize(2000, 800);
-    });
+  await page.setViewportSize({ width: 2000, height: 800 });
 
-    await page.waitForTimeout(300);
+  await page.waitForTimeout(300);
 
-    const measured = await page.evaluate((): { contentW: number; contentH: number } => {
-      const header = document.querySelector('header');
-      const titleBar = header instanceof HTMLElement ? header.offsetHeight : 42;
-      const thead = document.querySelector('thead');
-      const tbody = document.querySelector('tbody');
-      const footer = document.querySelector('.border-t');
+  const measured = await page.evaluate((): { contentW: number; contentH: number } => {
+    const header = document.querySelector('header');
+    const titleBar = header instanceof HTMLElement ? header.offsetHeight : 42;
+    const thead = document.querySelector('thead');
+    const tbody = document.querySelector('tbody');
+    const footer = document.querySelector('.border-t');
 
-      const theadH = thead instanceof HTMLElement ? thead.offsetHeight : 35;
-      const tbodyH = tbody instanceof HTMLElement ? tbody.scrollHeight : 0;
-      const footerH = footer instanceof HTMLElement ? footer.offsetHeight : 34;
+    const theadH = thead instanceof HTMLElement ? thead.offsetHeight : 35;
+    const tbodyH = tbody instanceof HTMLElement ? tbody.scrollHeight : 0;
+    const footerH = footer instanceof HTMLElement ? footer.offsetHeight : 34;
 
-      const table = document.querySelector('table') as HTMLElement | null;
-      const w = table?.scrollWidth ?? document.body.scrollWidth;
+    const table = document.querySelector('table') as HTMLElement | null;
+    const w = table?.scrollWidth ?? document.body.scrollWidth;
 
-      return {
-        contentW: w,
-        contentH: titleBar + theadH + tbodyH + footerH + 20,
-      };
-    });
-    const { contentW, contentH } = measured;
+    return {
+      contentW: w,
+      contentH: titleBar + theadH + tbodyH + footerH + 20,
+    };
+  });
+  const { contentW, contentH } = measured;
 
-    await app.evaluate(
-      ({ BrowserWindow }, { w, h }) => {
-        const [win] = BrowserWindow.getAllWindows();
-        win.setContentSize(w, h);
-      },
-      { w: contentW, h: contentH },
-    );
+  await page.setViewportSize({ width: contentW, height: contentH });
 
-    await page.waitForTimeout(400);
+  await page.waitForTimeout(400);
 
-    await page.addStyleTag({
-      content: `
+  await page.addStyleTag({
+    content: `
       ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
       * { scrollbar-width: none !important; }
       `,
-    });
+  });
 
-    const outDir = path.join(__dirname, '..', 'assets');
-    fs.mkdirSync(outDir, { recursive: true });
+  const outDir = path.join(process.cwd(), 'assets');
+  fs.mkdirSync(outDir, { recursive: true });
 
-    await page.screenshot({
-      path: path.join(outDir, outputFilename),
-      fullPage: false,
-      clip: {
-        x: 0,
-        y: 0,
-        width: contentW,
-        height: contentH,
-      },
-    });
-  } finally {
-    await app.close();
-  }
+  await page.screenshot({
+    path: path.join(outDir, outputFilename),
+    fullPage: false,
+    clip: {
+      x: 0,
+      y: 0,
+      width: contentW,
+      height: contentH,
+    },
+  });
 }
 
 test.setTimeout(180_000);
@@ -382,12 +360,18 @@ test.beforeAll(async () => {
   jartex = [...jartexStaff, ...NON_STAFF_USERNAMES.jartex];
 });
 
-test('capture pika showcase', async () => {
-  await captureShowcase(pika, { ...base, network: 'pikanetwork' }, 'showcase-pika.png');
+test('capture pika showcase', async ({ page }) => {
+  await captureShowcase(
+    page,
+    pika,
+    { ...base, network: 'pikanetwork' },
+    'showcase-pika.png',
+  );
 });
 
-test('capture jartex showcase', async () => {
+test('capture jartex showcase', async ({ page }) => {
   await captureShowcase(
+    page,
     jartex,
     { ...base, network: 'jartexnetwork' },
     'showcase-jartex.png',

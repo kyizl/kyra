@@ -1,0 +1,124 @@
+name: Dev Build
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: dev-build
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run e2e
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            runner: windows-latest
+            bundle: nsis
+            artifact_path: target/release/bundle/nsis/*.exe
+          - name: macOS
+            runner: macos-latest
+            bundle: dmg,app
+            artifact_path: target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          - name: Linux
+            runner: ubuntu-latest
+            bundle: appimage
+            artifact_path: target/release/bundle/appimage/*.AppImage
+
+    runs-on: ${{ matrix.runner }}
+    env:
+      KYRA_UPDATE_CHANNEL: dev
+      KYRA_BUILD_COMMIT: ${{ github.sha }}
+      VITE_APP_CHANNEL: dev
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Install macOS universal targets
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Install Linux prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Build dev installer
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            npm run tauri:build:dev -- --target universal-apple-darwin --bundles "${{ matrix.bundle }}"
+          else
+            npm run tauri:build:dev -- --bundles "${{ matrix.bundle }}"
+          fi
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v5
+        with:
+          name: kyra-dev-${{ matrix.name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish dev-latest
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+          pattern: kyra-dev-*
+          merge-multiple: true
+
+      - name: Replace dev-latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          gh release delete dev-latest --repo "${{ github.repository }}" --yes --cleanup-tag || true
+          gh release create dev-latest artifacts/* \
+            --repo "${{ github.repository }}" \
+            --prerelease \
+            --title "Kyra Overlay Dev #${RUN_NUMBER}" \
+            --notes "Automated development build from dev commit ${SHA}."

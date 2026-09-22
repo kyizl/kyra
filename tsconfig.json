@@ -5,12 +5,6 @@
     },
     {
       "path": "./tsconfig.web.json"
-    },
-    {
-      "path": "./tsconfig.e2e.json"
-    },
-    {
-      "path": "./tsconfig.codemods.json"
     }
   ],
   "files": []

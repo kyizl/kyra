@@ -2,6 +2,7 @@ name: Release
 
 on:
   push:
+    branches: [main]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -35,7 +36,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Run semantic-release
         id: release
@@ -121,13 +122,35 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Compile (tsc + vite)
-        run: npm run build
+      - name: Install Tauri prerequisites
+        run: rustup show
 
       - name: Package Windows installer
-        run: npx electron-builder --win --publish never
+        run: npm run tauri:build
+
+      - name: Generate Electron updater compatibility metadata
+        shell: bash
+        env:
+          VERSION: ${{ needs.semantic-release.outputs.new_release_version }}
+        run: |
+          INSTALLER=$(find target/release/bundle/nsis -maxdepth 1 -type f -name '*.exe' | head -n 1)
+          [ -n "$INSTALLER" ] || { echo "Tauri Windows installer not found"; exit 1; }
+          INSTALLER_NAME=$(basename "$INSTALLER")
+          SHA512=$(openssl dgst -sha512 -binary "$INSTALLER" | base64 -w 0)
+          SIZE=$(stat -c '%s' "$INSTALLER")
+          RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+          cat > target/release/bundle/nsis/latest.yml <<EOF
+          version: $VERSION
+          files:
+            - url: $INSTALLER_NAME
+              sha512: $SHA512
+              size: $SIZE
+          path: $INSTALLER_NAME
+          sha512: $SHA512
+          releaseDate: $RELEASE_DATE
+          EOF
 
       - name: Upload installer to release
         shell: bash
@@ -135,7 +158,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.semantic-release.outputs.new_release_git_tag }}
         run: |
-          gh release upload "$TAG" dist/*.exe dist/latest.yml --clobber
+          gh release upload "$TAG" target/release/bundle/nsis/*.exe --clobber
+          gh release upload "$TAG" target/release/bundle/nsis/latest.yml --clobber
 
   build-macos:
     name: Build — macOS (universal)
@@ -154,23 +178,46 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Compile (tsc + vite)
-        run: npm run build
+      - name: Install universal Rust targets
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
-      - name: Package macOS DMG
+      - name: Package macOS DMG and application
+        run: npm run tauri:build -- --target universal-apple-darwin --bundles dmg,app
+
+      - name: Create macOS ZIP and Electron updater metadata
+        shell: bash
         env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-        run: npx electron-builder --mac --publish never
+          VERSION: ${{ needs.semantic-release.outputs.new_release_version }}
+        run: |
+          APP=$(find target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -type d -name '*.app' | head -n 1)
+          [ -n "$APP" ] || { echo "macOS application bundle not found"; exit 1; }
+          ZIP="target/universal-apple-darwin/release/bundle/macos/Kyra.Overlay.${VERSION}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+          ZIP_NAME=$(basename "$ZIP")
+          SHA512=$(openssl dgst -sha512 -binary "$ZIP" | base64 -w 0)
+          SIZE=$(stat -f '%z' "$ZIP")
+          RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+          cat > target/universal-apple-darwin/release/bundle/macos/latest-mac.yml <<EOF
+          version: $VERSION
+          files:
+            - url: $ZIP_NAME
+              sha512: $SHA512
+              size: $SIZE
+          path: $ZIP_NAME
+          sha512: $SHA512
+          releaseDate: $RELEASE_DATE
+          EOF
 
-      - name: Upload DMG to release
+      - name: Upload macOS artifacts to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.semantic-release.outputs.new_release_git_tag }}
         run: |
-          gh release upload "$TAG" dist/*.dmg dist/latest-mac.yml --clobber
+          gh release upload "$TAG" target/universal-apple-darwin/release/bundle/dmg/*.dmg --clobber
+          gh release upload "$TAG" target/universal-apple-darwin/release/bundle/macos/*.zip --clobber
+          gh release upload "$TAG" target/universal-apple-darwin/release/bundle/macos/latest-mac.yml --clobber
 
   build-linux:
     name: Build — Linux (AppImage)
@@ -189,22 +236,42 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - run: sudo apt-get update && sudo apt-get install -y libarchive-tools
-
-      - name: Compile (tsc + vite)
-        run: npm run build
+      - run: sudo apt-get update && sudo apt-get install -y libarchive-tools libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Package Linux AppImage
-        run: npx electron-builder --linux --publish never
+        run: npm run tauri:build -- --bundles appimage
 
-      - name: Upload AppImage to release
+      - name: Generate Electron updater compatibility metadata
+        shell: bash
+        env:
+          VERSION: ${{ needs.semantic-release.outputs.new_release_version }}
+        run: |
+          APPIMAGE=$(find target/release/bundle/appimage -maxdepth 1 -type f -name '*.AppImage' | head -n 1)
+          [ -n "$APPIMAGE" ] || { echo "Linux AppImage not found"; exit 1; }
+          APPIMAGE_NAME=$(basename "$APPIMAGE")
+          SHA512=$(openssl dgst -sha512 -binary "$APPIMAGE" | base64 -w 0)
+          SIZE=$(stat -c '%s' "$APPIMAGE")
+          RELEASE_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+          cat > target/release/bundle/appimage/latest-linux.yml <<EOF
+          version: $VERSION
+          files:
+            - url: $APPIMAGE_NAME
+              sha512: $SHA512
+              size: $SIZE
+          path: $APPIMAGE_NAME
+          sha512: $SHA512
+          releaseDate: $RELEASE_DATE
+          EOF
+
+      - name: Upload Linux artifacts to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.semantic-release.outputs.new_release_git_tag }}
         run: |
-          gh release upload "$TAG" dist/*.AppImage dist/latest-linux.yml --clobber
+          gh release upload "$TAG" target/release/bundle/appimage/*.AppImage --clobber
+          gh release upload "$TAG" target/release/bundle/appimage/latest-linux.yml --clobber
 
   notify:
     name: Notify Discord — Release Summary

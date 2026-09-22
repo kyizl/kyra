@@ -6,17 +6,17 @@
       {
         "preset": "conventionalcommits",
         "releaseRules": [
-          { "type": "feat",     "release": "minor" },
-          { "type": "fix",      "release": "patch" },
-          { "type": "perf",     "release": "patch" },
+          { "type": "feat", "release": "minor" },
+          { "type": "fix", "release": "patch" },
+          { "type": "perf", "release": "patch" },
           { "type": "refactor", "release": "patch" },
-          { "type": "revert",   "release": "patch" },
-          { "type": "docs",     "release": false    },
-          { "type": "style",    "release": false    },
-          { "type": "chore",    "release": false    },
-          { "type": "test",     "release": false    },
-          { "type": "ci",       "release": false    },
-          { "breaking": true,   "release": "major"  }
+          { "type": "revert", "release": "patch" },
+          { "type": "docs", "release": false },
+          { "type": "style", "release": false },
+          { "type": "chore", "release": false },
+          { "type": "test", "release": false },
+          { "type": "ci", "release": false },
+          { "breaking": true, "release": "major" }
         ]
       }
     ],
@@ -26,16 +26,16 @@
         "preset": "conventionalcommits",
         "presetConfig": {
           "types": [
-            { "type": "feat",     "section": "Features"    },
-            { "type": "fix",      "section": "Bug Fixes"   },
-            { "type": "perf",     "section": "Performance" },
+            { "type": "feat", "section": "Features" },
+            { "type": "fix", "section": "Bug Fixes" },
+            { "type": "perf", "section": "Performance" },
             { "type": "refactor", "section": "Refactoring" },
-            { "type": "revert",   "section": "Reverts"     },
-            { "type": "docs",     "section": "Documentation", "hidden": true },
-            { "type": "chore",    "hidden": true },
-            { "type": "style",    "hidden": true },
-            { "type": "test",     "hidden": true },
-            { "type": "ci",       "hidden": true }
+            { "type": "revert", "section": "Reverts" },
+            { "type": "docs", "section": "Documentation", "hidden": true },
+            { "type": "chore", "hidden": true },
+            { "type": "style", "hidden": true },
+            { "type": "test", "hidden": true },
+            { "type": "ci", "hidden": true }
           ]
         }
       }

@@ -19,7 +19,10 @@ export default antfu(
       html: true,
       prettierOptions,
     },
-    ignores: ['**/out/**', '**/dist/**', '**/.electron-vite/**', 'backend/**'],
+    ignores: [
+      '**/out/**',
+      '**/dist/**',
+    ],
   },
   {
     files: ['**/*.ts'],
@@ -131,12 +134,6 @@ export default antfu(
       'ts/no-unsafe-return': 'off',
       'ts/no-unsafe-argument': 'off',
       'ts/no-explicit-any': 'off',
-    },
-  },
-  {
-    files: ['scripts/**/*.ts'],
-    rules: {
-      'no-console': 'off',
     },
   },
   prettierConfig,
