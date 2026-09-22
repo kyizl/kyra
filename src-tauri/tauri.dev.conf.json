@@ -30,6 +30,7 @@
   },
   "bundle": {
     "active": true,
+    "icon": ["icons/icon.png"],
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper",
