@@ -79,8 +79,7 @@ function updateScrollThumb(): void {
     const thumbHeight = Math.max(28, (trackHeight / scrollHeight) * trackHeight);
     const maxTop = trackHeight - thumbHeight;
     const scrollableMaxY = scrollHeight - clientHeight;
-    const top =
-      topInset + (scrollableMaxY > 0 ? (scrollTop / scrollableMaxY) * maxTop : 0);
+    const top = topInset + (scrollTop / scrollableMaxY) * maxTop;
     scrollThumb.value = { top, height: thumbHeight, visible: true };
   }
 
@@ -93,8 +92,7 @@ function updateScrollThumb(): void {
     const thumbWidth = Math.max(28, (trackWidth / scrollWidth) * trackWidth);
     const maxLeft = trackWidth - thumbWidth;
     const scrollableMaxX = scrollWidth - clientWidth;
-    const left =
-      leftInset + (scrollableMaxX > 0 ? (scrollLeft / scrollableMaxX) * maxLeft : 0);
+    const left = leftInset + (scrollLeft / scrollableMaxX) * maxLeft;
     scrollThumbX.value = { left, width: thumbWidth, visible: true };
   }
 }

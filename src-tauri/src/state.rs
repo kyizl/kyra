@@ -412,15 +412,14 @@ impl AppState {
             return Ok(());
         }
         let app = app.clone();
-        *cursor_poll = Some(async_runtime::spawn(async move {
+        *cursor_poll = Some(async_runtime::spawn_blocking(move || {
             let device = DeviceState::new();
             let mut previous = None;
             let mut previous_cursor = None;
             let mut window_geometry = None;
-            let mut interval = tokio::time::interval(std::time::Duration::from_millis(16));
             let mut geometry_tick = 0u8;
             loop {
-                interval.tick().await;
+                std::thread::sleep(std::time::Duration::from_millis(16));
                 let cursor = device.get_mouse().coords;
                 if previous_cursor == Some(cursor) {
                     continue;
