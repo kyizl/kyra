@@ -130,14 +130,14 @@
     "eslint-plugin-format": "^2.0.1",
     "knip": "^6.39.0",
     "playwright": "^1.64.0",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "semantic-release": "^25.0.9",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "7.0.2",
     "vitest": "^5.0.3",
-    "vue-tsc": "^3.3.12"
+    "vue-tsc": "^3.3.13"
   },
   "allowScripts": {
     "vue-demi@0.14.10": true,
