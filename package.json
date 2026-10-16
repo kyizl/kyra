@@ -103,7 +103,7 @@
     "prismarine-nbt": "^2.8.0",
     "radix-vue": "^1.9.9",
     "tailwind-merge": "^3.7.0",
-    "vue": "^3.5.43",
+    "vue": "^3.5.44",
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
@@ -136,7 +136,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "7.0.2",
-    "vitest": "^5.0.3",
+    "vitest": "^5.0.4",
     "vue-tsc": "^3.3.13"
   },
   "allowScripts": {
