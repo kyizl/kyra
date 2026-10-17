@@ -98,7 +98,7 @@
     "lucide-vue-next": "^1.0.0",
     "marked": "^18.1.1",
     "minecraft-protocol": "^1.68.0",
-    "pinia": "^4.0.3",
+    "pinia": "^4.1.0",
     "pinia-plugin-persistedstate": "^4.1.1",
     "prismarine-nbt": "^2.8.0",
     "radix-vue": "^1.9.9",
