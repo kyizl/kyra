@@ -2,8 +2,10 @@
 
 mod auth;
 mod commands;
+mod local_secret;
 mod migration;
 mod state;
+mod traffic;
 mod updater;
 
 use tauri::Manager;
@@ -27,6 +29,7 @@ fn main() {
                 .build(),
         )
         .manage(state::AppState::default())
+        .manage(traffic::TrafficState::default())
         .manage(updater::UpdaterState::default())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
@@ -61,6 +64,10 @@ fn main() {
             commands::rpc_set_active,
             commands::rpc_set_network,
             commands::rpc_destroy,
+            traffic::traffic_get,
+            traffic::traffic_set_mode,
+            traffic::traffic_save_api_key,
+            traffic::traffic_remove_api_key,
             commands::stats_fetch,
             commands::stats_get,
             commands::stats_clan,

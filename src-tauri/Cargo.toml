@@ -14,6 +14,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 base64 = "0.22"
+ring = "0.17"
 tokio = { version = "1", features = ["time"] }
 futures-util = "0.3"
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
@@ -21,7 +22,7 @@ device_query = "2"
 discord-rpc-client = "0.4"
 screenshots = "0.8"
 arboard = "3"
-keyring = { version = "3", features = ["windows-native", "apple-native", "linux-native"] }
+keyring = { version = "3", features = ["windows-native", "apple-native", "linux-native-sync-persistent", "crypto-rust"] }
 rfd = "0.15"
 dirs = "6"
 opener = "0.7"

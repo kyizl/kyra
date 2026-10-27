@@ -1,5 +1,6 @@
 use crate::auth::{self, DeviceCode};
 use crate::state::{AppState, ProxyStatus};
+use crate::traffic::TrafficState;
 use arboard::{Clipboard, ImageData};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use rfd::FileDialog;
@@ -236,12 +237,18 @@ pub fn rpc_destroy(state: tauri::State<'_, AppState>) -> Result<(), String> {
     state.destroy_rpc()
 }
 
-fn stats_base(network: &str) -> Result<&'static str, String> {
-    match network {
-        "pika" => Ok("https://proxy.kyizl.is-a.dev/api"),
-        "jartex" => Ok("https://stats.jartexnetwork.com/api"),
-        _ => Err("unsupported statistics network".to_owned()),
-    }
+fn stats_client() -> Result<reqwest::Client, String> {
+    static CLIENT: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
+    CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(10))
+                .timeout(std::time::Duration::from_secs(20))
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .map_err(|error| error.to_string())
+        })
+        .clone()
 }
 
 #[tauri::command]
@@ -390,20 +397,24 @@ pub async fn telemetry_start_link(
 
 #[tauri::command]
 pub async fn stats_fetch(
+    app: AppHandle,
+    traffic: tauri::State<'_, TrafficState>,
     network: String,
     username: String,
     interval: String,
     mode: String,
     concurrent: Option<bool>,
 ) -> Result<serde_json::Value, String> {
-    let base = stats_base(&network)?;
-    let client = match http_client() {
+    let route = traffic.stats_route(&app, &network)?;
+    let base = route.base;
+    let client = match stats_client() {
         Ok(client) => client,
         Err(error) => return Err(error),
     };
     let profile_url = format!("{base}/profile/{}", urlencoding::encode(&username));
     let profile_response = client
         .get(&profile_url)
+        .headers(route.headers.clone())
         .send()
         .await
         .map_err(|error| error.to_string())?;
@@ -442,7 +453,7 @@ pub async fn stats_fetch(
         "{base}/profile/{}/leaderboard?type=bedwars&interval={interval}&mode={mode}",
         urlencoding::encode(canonical_username)
     );
-    let stats_response = client.get(stats_url).send().await;
+    let stats_response = client.get(stats_url).headers(route.headers).send().await;
     let (stats, stats_disabled) = match stats_response {
         Ok(response) if response.status().as_u16() == 204 => (serde_json::Value::Null, true),
         Ok(response) if response.status().is_success() => (
@@ -466,12 +477,14 @@ pub async fn stats_fetch(
 
 #[tauri::command]
 pub async fn stats_get(
+    app: AppHandle,
+    traffic: tauri::State<'_, TrafficState>,
     network: String,
     username: String,
     interval: String,
     mode: String,
 ) -> Result<serde_json::Value, String> {
-    let result = stats_fetch(network, username, interval, mode, Some(false)).await?;
+    let result = stats_fetch(app, traffic, network, username, interval, mode, Some(false)).await?;
     Ok(result
         .get("stats")
         .cloned()
@@ -479,10 +492,17 @@ pub async fn stats_get(
 }
 
 #[tauri::command]
-pub async fn stats_clan(network: String, name: String) -> Result<serde_json::Value, String> {
-    let base = stats_base(&network)?;
-    http_client()?
+pub async fn stats_clan(
+    app: AppHandle,
+    traffic: tauri::State<'_, TrafficState>,
+    network: String,
+    name: String,
+) -> Result<serde_json::Value, String> {
+    let route = traffic.stats_route(&app, &network)?;
+    let base = route.base;
+    stats_client()?
         .get(format!("{base}/clans/{}", urlencoding::encode(&name)))
+        .headers(route.headers)
         .send()
         .await
         .map_err(|error| error.to_string())?

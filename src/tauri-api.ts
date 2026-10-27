@@ -1,3 +1,4 @@
+import type { TrafficMode, TrafficStatus } from './types';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
@@ -43,6 +44,14 @@ function subscribe<T>(event: string, callback: (payload: T) => void): Unsubscrib
 function createTauriApi() {
   return {
     platform: navigator.platform.toLowerCase(),
+    traffic: {
+      get: async () => invoke<TrafficStatus>('traffic_get'),
+      setMode: async (mode: TrafficMode) =>
+        invoke<TrafficStatus>('traffic_set_mode', { mode }),
+      saveApiKey: async (apiKey: string) =>
+        invoke<TrafficStatus>('traffic_save_api_key', { apiKey }),
+      removeApiKey: async () => invoke<TrafficStatus>('traffic_remove_api_key'),
+    },
     pika: {
       fetch: async (
         username: string,

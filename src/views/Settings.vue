@@ -4,6 +4,7 @@ import Section from '@renderer/components/SettingsSection.vue';
 import ShortcutInput from '@renderer/components/ShortcutInput.vue';
 import SideTabNav from '@renderer/components/SideTabNav.vue';
 import ToggleSetting from '@renderer/components/ToggleSetting.vue';
+import TrafficSettings from '@renderer/components/TrafficSettings.vue';
 import { Button } from '@renderer/components/ui/button';
 import { Switch } from '@renderer/components/ui/switch';
 import { useConfigStore } from '@renderer/store/config';
@@ -18,6 +19,7 @@ import {
   Keyboard,
   Palette,
   RefreshCw,
+  Route,
   Sliders,
   X,
 } from 'lucide-vue-next';
@@ -106,6 +108,7 @@ const tabs = [
   { id: 'columns', label: 'Columns', icon: Columns3 },
   { id: 'sorting', label: 'Sorting', icon: ArrowUpDown },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
+  { id: 'traffic', label: 'Traffic', icon: Route },
   { id: 'advanced', label: 'Advanced', icon: Sliders },
 ];
 
@@ -411,6 +414,8 @@ const proxies = computed(() => [
           />
         </Section>
       </div>
+
+      <TrafficSettings v-if="activeTab === 'traffic'" />
 
       <div
         v-if="activeTab === 'advanced'"
