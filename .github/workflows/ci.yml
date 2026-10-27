@@ -42,6 +42,9 @@ jobs:
         id: typecheck
         run: npm run typecheck
 
+      - name: Traffic regression tests
+        run: npm run test:traffic
+
       - name: Notify Discord on Failure
         if: failure()
         continue-on-error: true

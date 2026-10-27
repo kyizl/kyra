@@ -187,7 +187,10 @@ async function withRetry<T>(
   throw lastError;
 }
 
-export async function apiGet<T = unknown>(url: string) {
+export async function apiGet<T = unknown>(
+  url: string,
+  headers: Record<string, string> = {},
+) {
   await requestSemaphore.acquire();
   const startedAt = Date.now();
   dbg.http(`GET ${url}`);
@@ -195,7 +198,8 @@ export async function apiGet<T = unknown>(url: string) {
     const response = await withRetry(async () => {
       const result = await axios.get<T>(url, {
         timeout: 5_000,
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', ...headers },
+        maxRedirects: 0,
         validateStatus: () => true,
         httpAgent,
         httpsAgent,

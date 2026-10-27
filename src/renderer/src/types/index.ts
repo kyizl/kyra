@@ -598,10 +598,23 @@ export interface TeamInfo {
   players: string[];
 }
 
+export type TrafficMode = 'middleware' | 'direct';
+
+export interface TrafficStatus {
+  mode: TrafficMode;
+  hasApiKey: boolean;
+}
+
 declare global {
   interface Window {
     api: {
       platform: string;
+      traffic: {
+        get: () => Promise<TrafficStatus>;
+        setMode: (mode: TrafficMode) => Promise<TrafficStatus>;
+        saveApiKey: (apiKey: string) => Promise<TrafficStatus>;
+        removeApiKey: () => Promise<TrafficStatus>;
+      };
       pika: {
         fetch: (
           username: string,
