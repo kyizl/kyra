@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UsageDisclosure from '@renderer/components/UsageDisclosure.vue';
 import { useConfigStore } from '@renderer/store/config';
 import { ExternalLink, Fingerprint, Image, ShieldCheck, User } from 'lucide-vue-next';
 import { onMounted, ref } from 'vue';
@@ -96,6 +97,8 @@ onMounted(() => {
             </p>
           </div>
 
+          <UsageDisclosure />
+
           <button
             class="link-btn"
             :disabled="linking"
@@ -128,7 +131,8 @@ onMounted(() => {
 
           <p class="consent-note">
             By continuing, you authorise Kyra Overlay to receive the information listed
-            above from Discord for the purpose of account verification.
+            above from Discord for account verification, and to send the usage statistics
+            described above.
           </p>
         </div>
       </div>

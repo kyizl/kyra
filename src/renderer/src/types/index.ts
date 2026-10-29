@@ -700,6 +700,8 @@ declare global {
       telemetry: {
         isLinked: () => Promise<boolean>;
         startLink: () => void;
+        isDisclosureAcknowledged: () => Promise<boolean>;
+        acknowledgeDisclosure: () => Promise<void>;
         onEvent: (callback: (event: TelemetryEventPayload) => void) => () => void;
       };
       support: {

@@ -222,6 +222,10 @@ const api = {
     isLinked: async (): Promise<boolean> =>
       ipcRenderer.invoke('telemetry:is-linked') as Promise<boolean>,
     startLink: () => ipcRenderer.send('telemetry:start-link'),
+    isDisclosureAcknowledged: async (): Promise<boolean> =>
+      ipcRenderer.invoke('telemetry:is-disclosure-acknowledged') as Promise<boolean>,
+    acknowledgeDisclosure: async (): Promise<void> =>
+      ipcRenderer.invoke('telemetry:acknowledge-disclosure') as Promise<void>,
     onEvent: (cb: (event: unknown) => void): (() => void) => {
       const handler = (_: IpcRendererEvent, event: unknown): void => cb(event);
       ipcRenderer.on('telemetry:event', handler);

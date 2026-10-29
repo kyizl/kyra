@@ -9,6 +9,7 @@ import { unregisterAllShortcuts } from './ipc/shortcuts-handlers';
 import { dbg } from './logger';
 import { startProxyManager, stopProxyManager } from './proxy-service';
 import { disconnectSupportSocket } from './support-socket';
+import { isUsageReportingActive, stopUsageReporting } from './usage-reporter';
 import { createWindow, getMainWindow, stopCursorPoll } from './window';
 
 export const api = 'https://overlay.kyizl.is-a.dev';
@@ -61,6 +62,16 @@ if (!gotSingleInstanceLock) {
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
+  });
+
+  let usageFlushed = false;
+
+  app.on('before-quit', (event) => {
+    if (usageFlushed || !isUsageReportingActive()) return;
+
+    event.preventDefault();
+    usageFlushed = true;
+    void stopUsageReporting().finally(() => app.quit());
   });
 
   app.on('will-quit', () => {

@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { app, safeStorage, shell } from 'electron';
 import { dbg } from './logger';
+import { startUsageReporting, suspendUsageReporting } from './usage-reporter';
 import { getMainWindow } from './window';
 
 const api = 'https://overlay.kyizl.is-a.dev';
@@ -10,6 +11,7 @@ const api = 'https://overlay.kyizl.is-a.dev';
 interface TelemetryState {
   apiKey: string | null;
   countClaimed: boolean;
+  usageDisclosureAcknowledged: boolean;
 }
 
 export type TelemetryEvent =
@@ -43,6 +45,7 @@ function normalizeState(parsed: Partial<TelemetryState>): TelemetryState {
   return {
     apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey : null,
     countClaimed: parsed.countClaimed === true,
+    usageDisclosureAcknowledged: parsed.usageDisclosureAcknowledged === true,
   };
 }
 
@@ -83,7 +86,7 @@ async function loadState(): Promise<TelemetryState> {
       return cachedState;
     }
 
-    cachedState = { apiKey: null, countClaimed: false };
+    cachedState = normalizeState({});
     return cachedState;
   }
 }
@@ -105,6 +108,15 @@ async function saveState(state: TelemetryState): Promise<void> {
 
 function emit(event: TelemetryEvent): void {
   getMainWindow()?.webContents.send('telemetry:event', event);
+}
+
+function syncUsageReporting(state: TelemetryState): void {
+  if (state.apiKey !== null && state.usageDisclosureAcknowledged) {
+    startUsageReporting(state.apiKey);
+    return;
+  }
+
+  suspendUsageReporting();
 }
 
 const validity = 10 * 60 * 1000;
@@ -138,6 +150,7 @@ export async function isLinked(): Promise<boolean> {
 
   const now = Date.now();
   if (verifiedApiKey === state.apiKey && now < verifiedUntil) {
+    syncUsageReporting(state);
     return true;
   }
 
@@ -146,17 +159,32 @@ export async function isLinked(): Promise<boolean> {
   if (result === 'valid') {
     verifiedApiKey = state.apiKey;
     verifiedUntil = now + validity;
+    syncUsageReporting(state);
     return true;
   }
 
   if (result === 'invalid') {
-    await saveState({ apiKey: null, countClaimed: false });
+    suspendUsageReporting();
+    await saveState(normalizeState({}));
     verifiedApiKey = null;
     verifiedUntil = 0;
     return false;
   }
 
+  syncUsageReporting(state);
   return true;
+}
+
+export async function isUsageDisclosureAcknowledged(): Promise<boolean> {
+  const state = await loadState();
+  return state.usageDisclosureAcknowledged;
+}
+
+export async function acknowledgeUsageDisclosure(): Promise<void> {
+  const state = await loadState();
+  const next = { ...state, usageDisclosureAcknowledged: true };
+  await saveState(next);
+  syncUsageReporting(next);
 }
 
 export function startDiscordLink(): void {
@@ -260,9 +288,15 @@ export async function completeDiscordLink(apiKey: string): Promise<void> {
       }
     }
 
-    await saveState({ apiKey, countClaimed: true });
+    const linkedState: TelemetryState = {
+      apiKey,
+      countClaimed: true,
+      usageDisclosureAcknowledged: true,
+    };
+    await saveState(linkedState);
     verifiedApiKey = apiKey;
     verifiedUntil = Date.now() + validity;
+    syncUsageReporting(linkedState);
     emit({ type: 'linked' });
   } catch {
     emit({ type: 'error', message: 'Could not reach the server. Please try again.' });
