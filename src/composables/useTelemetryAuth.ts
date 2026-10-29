@@ -5,10 +5,15 @@ const checked = ref(false);
 const linked = ref(false);
 const linking = ref(false);
 const errorMessage = ref('');
+const disclosureAcknowledged = ref(true);
+const acknowledging = ref(false);
 const authorizeUrl = ref('');
 
 const needsLink = computed(() => checked.value && !linked.value);
 const checking = computed(() => !checked.value);
+const needsDisclosure = computed(
+  () => checked.value && linked.value && !disclosureAcknowledged.value,
+);
 
 async function refreshStatus(): Promise<void> {
   checked.value = false;
@@ -17,6 +22,9 @@ async function refreshStatus(): Promise<void> {
 
   try {
     linked.value = await window.api.telemetry.isLinked();
+    disclosureAcknowledged.value = linked.value
+      ? await window.api.telemetry.isDisclosureAcknowledged()
+      : true;
   } catch {
     linked.value = false;
     errorMessage.value =
@@ -37,7 +45,20 @@ function bypassLink(): void {
   errorMessage.value = '';
   linking.value = false;
   linked.value = true;
+  disclosureAcknowledged.value = true;
   checked.value = true;
+}
+
+async function acknowledgeDisclosure(): Promise<void> {
+  if (acknowledging.value) return;
+
+  acknowledging.value = true;
+  try {
+    await window.api.telemetry.acknowledgeDisclosure();
+    disclosureAcknowledged.value = true;
+  } finally {
+    acknowledging.value = false;
+  }
 }
 
 function handleTelemetryEvent(event: TelemetryEventPayload): void {
@@ -51,6 +72,7 @@ function handleTelemetryEvent(event: TelemetryEventPayload): void {
   if (event.type === 'linked') {
     linking.value = false;
     linked.value = true;
+    disclosureAcknowledged.value = true;
     return;
   }
 
@@ -68,7 +90,10 @@ export function useTelemetryAuth() {
     errorMessage,
     authorizeUrl,
     needsLink,
+    needsDisclosure,
+    acknowledging,
     refreshStatus,
+    acknowledgeDisclosure,
     startLink,
     bypassLink,
     handleTelemetryEvent,

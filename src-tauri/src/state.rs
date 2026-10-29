@@ -1,3 +1,4 @@
+use crate::usage::UsageReporter;
 use device_query::{DeviceQuery, DeviceState};
 use discord_rpc_client::Client as DiscordClient;
 use futures_util::{SinkExt, StreamExt};
@@ -40,6 +41,7 @@ pub struct AppState {
     rpc: Mutex<RpcState>,
     rpc_commands: Mutex<Option<Sender<RpcCommand>>>,
     telemetry_key: Mutex<Option<String>>,
+    usage: UsageReporter,
 }
 
 impl Drop for AppState {
@@ -182,6 +184,7 @@ impl Default for AppState {
             rpc: Mutex::new(RpcState::default()),
             rpc_commands: Mutex::new(None),
             telemetry_key: Mutex::new(None),
+            usage: UsageReporter::default(),
         }
     }
 }
@@ -318,12 +321,62 @@ impl AppState {
         if path.exists() {
             std::fs::remove_file(path).map_err(|error| error.to_string())?;
         }
+        if api_key.is_none() {
+            Self::clear_usage_disclosure(app)?;
+        }
         let mut key = self
             .telemetry_key
             .lock()
             .map_err(|_| "telemetry state lock poisoned".to_owned())?;
         *key = api_key.map(str::to_owned);
         Ok(())
+    }
+
+    fn usage_disclosure_path(app: &AppHandle) -> Result<PathBuf, String> {
+        app.path()
+            .app_data_dir()
+            .map(|directory| directory.join("usage-disclosure"))
+            .map_err(|error| error.to_string())
+    }
+
+    fn clear_usage_disclosure(app: &AppHandle) -> Result<(), String> {
+        match std::fs::remove_file(Self::usage_disclosure_path(app)?) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error.to_string()),
+        }
+    }
+
+    pub fn usage_disclosure_acknowledged(&self, app: &AppHandle) -> Result<bool, String> {
+        Ok(Self::usage_disclosure_path(app)?.exists())
+    }
+
+    pub fn acknowledge_usage_disclosure(&self, app: &AppHandle) -> Result<(), String> {
+        let path = Self::usage_disclosure_path(app)?;
+        if let Some(directory) = path.parent() {
+            std::fs::create_dir_all(directory).map_err(|error| error.to_string())?;
+        }
+        std::fs::write(path, b"1").map_err(|error| error.to_string())
+    }
+
+    pub fn sync_usage_reporting(
+        &self,
+        app: &AppHandle,
+        client: reqwest::Client,
+    ) -> Result<(), String> {
+        let api_key = self.linked_api_key(app)?;
+        match api_key {
+            Some(api_key) if self.usage_disclosure_acknowledged(app)? => {
+                let version = app.package_info().version.to_string();
+                self.usage.start(client, &api_key, &version);
+            }
+            _ => self.usage.suspend(),
+        }
+        Ok(())
+    }
+
+    pub async fn stop_usage_reporting(&self) {
+        self.usage.stop().await;
     }
 
     pub fn start_support_socket(&self, app: &AppHandle, api_key: String) -> Result<(), String> {

@@ -145,6 +145,9 @@ function createTauriApi() {
     },
     telemetry: {
       isLinked: async () => invoke<boolean>('telemetry_is_linked'),
+      isDisclosureAcknowledged: async () =>
+        invoke<boolean>('telemetry_is_disclosure_acknowledged'),
+      acknowledgeDisclosure: async () => invoke<void>('telemetry_acknowledge_disclosure'),
       startLink: () => {
         void invoke('telemetry_start_link').catch((error: unknown) => {
           console.error('Telemetry link failed', error);

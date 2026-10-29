@@ -5,11 +5,12 @@ mod commands;
 mod migration;
 mod state;
 mod updater;
+mod usage;
 
 use tauri::Manager;
 
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
@@ -66,6 +67,8 @@ fn main() {
             commands::stats_clan,
             commands::telemetry_is_linked,
             commands::telemetry_start_link,
+            commands::telemetry_is_disclosure_acknowledged,
+            commands::telemetry_acknowledge_disclosure,
             commands::support_list,
             commands::support_create,
             commands::support_get,
@@ -100,6 +103,13 @@ fn main() {
             commands::log_open_dialog,
             commands::log_set_path
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run Kyra Overlay");
+        .build(tauri::generate_context!())
+        .expect("failed to build Kyra Overlay");
+
+    app.run(|handle, event| {
+        if matches!(event, tauri::RunEvent::Exit) {
+            let state = handle.state::<state::AppState>();
+            tauri::async_runtime::block_on(state.stop_usage_reporting());
+        }
+    });
 }

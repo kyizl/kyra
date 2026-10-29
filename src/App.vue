@@ -5,6 +5,7 @@ import LoadingScreen from '@renderer/components/LoadingScreen.vue';
 import AnnouncementModal from '@renderer/components/modals/AnnouncementModal.vue';
 import DiscordLinkModal from '@renderer/components/modals/DiscordLinkModal.vue';
 import PremiumSignInModal from '@renderer/components/modals/PremiumSignInModal.vue';
+import UsageDisclosureModal from '@renderer/components/modals/UsageDisclosureModal.vue';
 import PerfOverlay from '@renderer/components/PerfOverlay.vue';
 import QueueSafetyBanner from '@renderer/components/queue/QueueSafetyBanner.vue';
 import TitleBar from '@renderer/components/TitleBar.vue';
@@ -132,11 +133,14 @@ const {
   linked: discordLinked,
   checking: discordChecking,
   needsLink: needsDiscordLink,
+  needsDisclosure: needsUsageDisclosure,
+  acknowledging: acknowledgingDisclosure,
   linking: discordLinking,
   errorMessage: discordLinkError,
   authorizeUrl: discordAuthorizeUrl,
   refreshStatus: refreshDiscordLinkStatus,
   startLink: startDiscordLink,
+  acknowledgeDisclosure,
   bypassLink: bypassDiscordLink,
   handleTelemetryEvent,
 } = useTelemetryAuth();
@@ -170,10 +174,16 @@ const showDiscordLinkModal = computed(
   () => postLoadingReady.value && !discordChecking.value && needsDiscordLink.value,
 );
 
+const showUsageDisclosureModal = computed(
+  () =>
+    postLoadingReady.value && !showDiscordLinkModal.value && needsUsageDisclosure.value,
+);
+
 const showPremiumSignInModal = computed(
   () =>
     postLoadingReady.value &&
     !showDiscordLinkModal.value &&
+    !showUsageDisclosureModal.value &&
     activePremiumAuth.value !== null,
 );
 
@@ -181,6 +191,7 @@ const showAnnouncementModal = computed(
   () =>
     postLoadingReady.value &&
     !showDiscordLinkModal.value &&
+    !showUsageDisclosureModal.value &&
     !showPremiumSignInModal.value &&
     activeAnnouncement.value !== null,
 );
@@ -198,6 +209,7 @@ watch(
 watch(
   () =>
     showDiscordLinkModal.value ||
+    showUsageDisclosureModal.value ||
     showPremiumSignInModal.value ||
     showAnnouncementModal.value,
   (modalVisible) => {
@@ -1246,6 +1258,12 @@ onUnmounted(() => {
         :error-message="discordLinkError"
         :authorize-url="discordAuthorizeUrl"
         @link="startDiscordLink()"
+      />
+
+      <UsageDisclosureModal
+        v-else-if="showUsageDisclosureModal"
+        :acknowledging="acknowledgingDisclosure"
+        @acknowledge="acknowledgeDisclosure()"
       />
 
       <PremiumSignInModal

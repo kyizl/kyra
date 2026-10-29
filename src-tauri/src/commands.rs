@@ -252,14 +252,15 @@ pub async fn telemetry_is_linked(
     let Some(api_key) = state.linked_api_key(&app)? else {
         return Ok(false);
     };
-    let response = http_client()?
+    let client = http_client()?;
+    let response = client
         .get(format!(
             "{TELEMETRY_API}/api/telemetry/verify?key={}",
             urlencoding::encode(&api_key)
         ))
         .send()
         .await;
-    match response {
+    let linked = match response {
         Ok(response) if response.status().is_success() => {
             let body = response
                 .json::<serde_json::Value>()
@@ -267,14 +268,39 @@ pub async fn telemetry_is_linked(
                 .map_err(|error| error.to_string())?;
             if body.get("valid").and_then(serde_json::Value::as_bool) == Some(false) {
                 state.save_linked_api_key(&app, None)?;
-                Ok(false)
+                false
             } else {
-                Ok(true)
+                true
             }
         }
-        Ok(_) => Ok(true),
-        Err(_) => Ok(true),
+        Ok(_) | Err(_) => true,
+    };
+    sync_usage_reporting(&app, &state, client);
+    Ok(linked)
+}
+
+fn sync_usage_reporting(app: &AppHandle, state: &AppState, client: reqwest::Client) {
+    if let Err(error) = state.sync_usage_reporting(app, client) {
+        eprintln!("usage reporting sync failed: {error}");
     }
+}
+
+#[tauri::command]
+pub fn telemetry_is_disclosure_acknowledged(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    state.usage_disclosure_acknowledged(&app)
+}
+
+#[tauri::command]
+pub async fn telemetry_acknowledge_disclosure(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state.acknowledge_usage_disclosure(&app)?;
+    sync_usage_reporting(&app, &state, http_client()?);
+    Ok(())
 }
 
 #[tauri::command]
@@ -375,6 +401,8 @@ pub async fn telemetry_start_link(
             OAuthPoll::Pending => {}
             OAuthPoll::Success { api_key } => {
                 state.save_linked_api_key(&app, Some(&api_key))?;
+                state.acknowledge_usage_disclosure(&app)?;
+                sync_usage_reporting(&app, &state, client.clone());
                 app.emit("telemetry:event", TelemetryEvent::Linked)
                     .map_err(|error| error.to_string())?;
                 return Ok(());

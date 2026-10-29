@@ -2456,6 +2456,7 @@ dependencies = [
  "keyring",
  "kyra_proxy",
  "opener",
+ "rand 0.8.8",
  "reqwest 0.12.28",
  "rfd",
  "screenshots",
@@ -2472,6 +2473,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "urlencoding",
+ "uuid",
 ]
 
 [[package]]
