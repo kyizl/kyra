@@ -1,4 +1,5 @@
 import type { IpcRendererEvent } from 'electron';
+import type { TrafficMode, TrafficStatus } from '../main/traffic-service';
 import process from 'node:process';
 import { contextBridge, ipcRenderer } from 'electron';
 
@@ -28,6 +29,17 @@ interface SupportConversationDetail {
 
 const api = {
   platform: process.platform as string,
+
+  traffic: {
+    get: async (): Promise<TrafficStatus> =>
+      ipcRenderer.invoke('traffic:get') as Promise<TrafficStatus>,
+    setMode: async (mode: TrafficMode): Promise<TrafficStatus> =>
+      ipcRenderer.invoke('traffic:set-mode', mode) as Promise<TrafficStatus>,
+    saveApiKey: async (apiKey: string): Promise<TrafficStatus> =>
+      ipcRenderer.invoke('traffic:save-api-key', apiKey) as Promise<TrafficStatus>,
+    removeApiKey: async (): Promise<TrafficStatus> =>
+      ipcRenderer.invoke('traffic:remove-api-key') as Promise<TrafficStatus>,
+  },
 
   pika: {
     fetch: async (

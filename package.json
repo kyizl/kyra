@@ -16,6 +16,7 @@
     "lint:fix": "eslint . --fix --max-warnings 9999",
     "format": "prettier --write \"src/**/*.{ts,vue,css,html}\"",
     "format:check": "prettier --check \"src/**/*.{ts,vue,css,html}\"",
+    "test:traffic": "vitest run src/main/traffic-service.test.ts src/main/ipc/stats-handlers.test.ts",
     "typecheck": "vue-tsc --noEmit -p tsconfig.node.json && vue-tsc --noEmit -p tsconfig.web.json && vue-tsc --noEmit -p tsconfig.e2e.json && vue-tsc --noEmit -p tsconfig.codemods.json",
     "codemod": "npm --prefix codemods run codemod",
     "fix": "npm run codemod && npm run typecheck && npm run lint:fix && npm run format",

@@ -1,9 +1,9 @@
+import type { StatsRoute } from '../traffic-service';
 import { ipcMain } from 'electron';
 import { apiGet, cache, dedupe } from '../http-client';
 import { dbg } from '../logger';
 
-const pika = 'https://proxy.kyizl.is-a.dev/api';
-const jartex = 'https://stats.jartexnetwork.com/api';
+import { getStatsRoute } from '../traffic-service';
 
 type StatsNetwork = 'pika' | 'jartex';
 
@@ -16,15 +16,15 @@ interface FetchResult {
 }
 
 export function registerStatsHandlers(): void {
-  ipcMain.handle('pika:fetch', createFetchHandler('pika', pika));
-  ipcMain.handle('pika:stats', createStatsHandler('pika', pika));
-  ipcMain.handle('pika:clan', createClanHandler('pika', pika));
-  ipcMain.handle('jartex:fetch', createFetchHandler('jartex', jartex));
-  ipcMain.handle('jartex:stats', createStatsHandler('jartex', jartex));
-  ipcMain.handle('jartex:clan', createClanHandler('jartex', jartex));
+  ipcMain.handle('pika:fetch', createFetchHandler('pika'));
+  ipcMain.handle('pika:stats', createStatsHandler('pika'));
+  ipcMain.handle('pika:clan', createClanHandler('pika'));
+  ipcMain.handle('jartex:fetch', createFetchHandler('jartex'));
+  ipcMain.handle('jartex:stats', createStatsHandler('jartex'));
+  ipcMain.handle('jartex:clan', createClanHandler('jartex'));
 }
 
-function createFetchHandler(network: StatsNetwork, base: string) {
+function createFetchHandler(network: StatsNetwork) {
   return async (
     _: Electron.IpcMainInvokeEvent,
     username: string,
@@ -32,7 +32,9 @@ function createFetchHandler(network: StatsNetwork, base: string) {
     mode = 'ALL_MODES',
     concurrent = false,
   ): Promise<FetchResult> => {
-    const key = `${network}:${username.toLowerCase()}:${interval}:${mode}`;
+    const route = getStatsRoute(network);
+    const { base } = route;
+    const key = `${route.cacheScope}:${username.toLowerCase()}:${interval}:${mode}`;
     dbg.ipc(
       `${network}:fetch - user="${username}", interval=${interval}, mode=${mode}, concurrent=${concurrent}`,
     );
@@ -54,6 +56,7 @@ function createFetchHandler(network: StatsNetwork, base: string) {
           username,
           profileUrl,
           directStatsUrl,
+          route,
         );
       }
       return fetchProfileThenStats(
@@ -63,7 +66,7 @@ function createFetchHandler(network: StatsNetwork, base: string) {
         profileUrl,
         interval,
         mode,
-        base,
+        route,
       );
     });
   };
@@ -75,13 +78,14 @@ async function fetchProfileAndStatsConcurrently(
   username: string,
   profileUrl: string,
   statsUrl: string,
+  route: StatsRoute,
 ): Promise<FetchResult> {
   const [profileResponse, statsResponse] = await Promise.all([
-    apiGet(profileUrl).catch((error: Error) => {
+    apiGet(profileUrl, route.headers).catch((error: Error) => {
       dbg.error(`${network}:fetch - profile "${username}" - ${error.message}`);
       return null;
     }),
-    apiGet(statsUrl).catch((error: Error) => {
+    apiGet(statsUrl, route.headers).catch((error: Error) => {
       dbg.error(`${network}:fetch - stats "${username}" - ${error.message}`);
       return null;
     }),
@@ -127,12 +131,14 @@ async function fetchProfileThenStats(
   profileUrl: string,
   interval: string,
   mode: string,
-  base: string,
+  route: StatsRoute,
 ): Promise<FetchResult> {
-  const profileResponse = await apiGet(profileUrl).catch((error: Error) => {
-    dbg.error(`${network}:fetch - profile "${username}" - ${error.message}`);
-    return null;
-  });
+  const profileResponse = await apiGet(profileUrl, route.headers).catch(
+    (error: Error) => {
+      dbg.error(`${network}:fetch - profile "${username}" - ${error.message}`);
+      return null;
+    },
+  );
 
   const notFound =
     profileResponse !== null &&
@@ -164,12 +170,14 @@ async function fetchProfileThenStats(
   const profile = profileResponse?.status === 200 ? profileResponse.data : null;
   const canonicalUsername =
     (profile as { username?: string } | null)?.username ?? username;
-  const canonicalStatsUrl = `${base}/profile/${encodeURIComponent(canonicalUsername)}/leaderboard?type=bedwars&interval=${interval}&mode=${mode}`;
+  const canonicalStatsUrl = `${route.base}/profile/${encodeURIComponent(canonicalUsername)}/leaderboard?type=bedwars&interval=${interval}&mode=${mode}`;
 
-  const statsResponse = await apiGet(canonicalStatsUrl).catch((error: Error) => {
-    dbg.error(`${network}:fetch - stats "${canonicalUsername}" - ${error.message}`);
-    return null;
-  });
+  const statsResponse = await apiGet(canonicalStatsUrl, route.headers).catch(
+    (error: Error) => {
+      dbg.error(`${network}:fetch - stats "${canonicalUsername}" - ${error.message}`);
+      return null;
+    },
+  );
 
   const statsDisabled = statsResponse !== null && statsResponse.status === 204;
   const stats = statsResponse?.status === 200 ? statsResponse.data : null;
@@ -187,14 +195,16 @@ async function fetchProfileThenStats(
   return result;
 }
 
-function createStatsHandler(network: StatsNetwork, base: string) {
+function createStatsHandler(network: StatsNetwork) {
   return async (
     _: Electron.IpcMainInvokeEvent,
     username: string,
     interval: string,
     mode: string,
   ): Promise<unknown> => {
-    const key = `${network}:stats:${username.toLowerCase()}:${interval}:${mode}`;
+    const route = getStatsRoute(network);
+    const { base } = route;
+    const key = `${route.cacheScope}:stats:${username.toLowerCase()}:${interval}:${mode}`;
     dbg.ipc(`${network}:stats - user="${username}", interval=${interval}, mode=${mode}`);
 
     const cached = cache.get<unknown>(key);
@@ -207,7 +217,7 @@ function createStatsHandler(network: StatsNetwork, base: string) {
       const url = `${base}/profile/${encodeURIComponent(username)}/leaderboard?type=bedwars&interval=${interval}&mode=${mode}`;
       dbg.http(`${network}:stats request for "${username}"`);
 
-      const response = await apiGet(url).catch((error: Error) => {
+      const response = await apiGet(url, route.headers).catch((error: Error) => {
         dbg.error(`${network}:stats - "${username}" - ${error.message}`);
         return null;
       });
@@ -219,9 +229,11 @@ function createStatsHandler(network: StatsNetwork, base: string) {
   };
 }
 
-function createClanHandler(network: StatsNetwork, base: string) {
+function createClanHandler(network: StatsNetwork) {
   return async (_: Electron.IpcMainInvokeEvent, name: string): Promise<unknown> => {
-    const key = `${network}:clan:${name.toLowerCase()}`;
+    const route = getStatsRoute(network);
+    const { base } = route;
+    const key = `${route.cacheScope}:clan:${name.toLowerCase()}`;
     dbg.ipc(`${network}:clan - name="${name}"`);
 
     const cached = cache.get<unknown>(key);
@@ -234,7 +246,7 @@ function createClanHandler(network: StatsNetwork, base: string) {
       const url = `${base}/clans/${encodeURIComponent(name)}`;
       dbg.http(`${network}:clan request for "${name}"`);
 
-      const response = await apiGet(url).catch((error: Error) => {
+      const response = await apiGet(url, route.headers).catch((error: Error) => {
         dbg.error(`${network}:clan - "${name}" - ${error.message}`);
         return null;
       });
