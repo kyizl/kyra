@@ -133,7 +133,7 @@
     "playwright": "^1.65.1",
     "prettier": "^3.10.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
-    "semantic-release": "^25.0.9",
+    "semantic-release": "^26.0.1",
     "tailwindcss": "^4.3.5",
     "tsx": "^4.23.15",
     "typescript": "6.0.3",
