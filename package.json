@@ -85,7 +85,7 @@
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
-    "@logdna/tail-file": "^4.0.2",
+    "@logdna/tail-file": "^5.0.2",
     "@vueuse/core": "^15.0.0",
     "axios": "^1.21.1",
     "class-variance-authority": "^0.7.1",
